@@ -5,9 +5,22 @@ import requests
 import json
 from time import sleep
 from bs4 import BeautifulSoup
+import mysql.connector
 
 
-def buscaArtigo(soup):
+def buscaArtigo(soup, ano):
+    mydb = mysql.connector.connect(
+      host="localhost",
+      user="root",
+      passwd="",
+      database="semead")
+
+    cod = soup.find('a', {"class":"btn btn-success form-control"})
+    if(cod != None):
+        cod = cod .get('href')
+        cod = ''.join([n for n in cod if n.isdigit()])
+    else:
+        cod = novo.split('=')[1]
     artigo = {}
     dados_autores = {}
     autores = soup.find("tbody").find_all("td")
@@ -20,8 +33,13 @@ def buscaArtigo(soup):
             autor = autor.split(" - ")
             autor_posicao = autor[0]
             autor = autor[1]
-            dados_autores[autor_posicao] = {"nome":autor, "universidade":local[0], "departamento":local[1]}
-     
+            universidade = (local[0] if len(local) >= 1 else '')
+            departamento = (local[1] if len(local) >= 2 else '')
+            mycursor = mydb.cursor()
+            sql = "INSERT INTO autores(cod, ano, nome, universidade, departamento, posicao) VALUES (%s, %s, %s, %s, %s, %s)"
+            val = (cod, ano, autor, universidade, departamento, autor_posicao)
+            mycursor.execute(sql, val)
+            mydb.commit()
 
     mydivs = soup.find_all("div", ["panel", "panel-default"])
     for x in mydivs:
@@ -32,30 +50,48 @@ def buscaArtigo(soup):
             keywords = keywords.split("\n")
             artigo["keywords"] = [i.strip() for i in keywords]
         if(x.find("h3", text="Área")):
-           artigo["area"] = x.find("div", "panel-body").text.strip()
-                  
-    artigo["autores"] = dados_autores 
+            artigo["area"] = x.find("div", "panel-body").text.strip()
+        if(x.find("h3", text="Tema")):
+            artigo["tema"] = x.find("div", "panel-body").text.strip()
 
-    print(artigo["titulo"])
-    with open('data.json', 'a', encoding='utf-8') as f:
-        json.dump(artigo, f, ensure_ascii=False, indent=4)
-        json.dump(',', f, ensure_ascii=False, indent=4)
+
+    artigo["autores"] = dados_autores
+    print(artigo)
+    mycursor = mydb.cursor()
+    sql = "INSERT INTO artigos(cod, ano, titulo, area, tema) VALUES (%s, %s, %s, %s, %s)"
+    val = (cod, ano, artigo["titulo"], artigo["area"], artigo["tema"])
+    mycursor.execute(sql, val)
+    mydb.commit()
+    for keyword in artigo["keywords"]:
+        mycursor = mydb.cursor()
+        sql = "INSERT INTO keywords(cod, ano, keyword) VALUES (%s, %s, %s)"
+        val = (cod, ano, keyword)
+        mycursor.execute(sql, val)
+        mydb.commit()
+
+    link = soup.find('a', {"class":"btn btn-primary"})
+    seta = link.find('span').get("class")
+    if 'glyphicon-menu-right' not in seta :
+        link = link.findNext('a')
+        return link
+
 
 
 
 inicio = 'http://login.semead.com.br/21semead/anais/resumo.php'
+ano = 2018
 resposta = requests.get(inicio, headers={"User-Agent": "Mozilla/5.0"}).content
 soup = BeautifulSoup(resposta, features="html.parser")
-buscaArtigo(soup)
-#
-# link = soup.find('a', {"class":"btn btn-primary"})
-# while (link != None):
-#   buscaArtigo(soup)
+
+link = buscaArtigo(soup, ano)
+
+# while (link != None):  
 #   proximo = link.get('href')
-#   inicio = 'http://login.semead.com.br/21semead/anais/resumo.php'+proximo
-#   print(inicio)
-#   resposta = requests.get(inicio, headers={"User-Agent": "Mozilla/5.0"}).content
-#   soup = BeautifulSoup(resposta, features="html.parser")
+#   novo = 'http://login.semead.com.br/21semead/anais/resumo.php'+proximo
+#   print(novo)
+#   novaResposta = requests.get(novo, headers={"User-Agent": "Mozilla/5.0"}).content
+#   novoSoup = BeautifulSoup(novaResposta, features="html.parser")
+#   link = buscaArtigo(novoSoup, ano)
 # else:
 #   print("Acabou")
 
