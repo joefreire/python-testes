@@ -12,7 +12,7 @@ def buscaArtigo(soup, ano):
     mydb = mysql.connector.connect(
       host="localhost",
       user="root",
-      passwd="",
+      passwd="root",
       database="semead")
 
     cod = soup.find('a', {"class":"btn btn-success form-control"})
@@ -56,7 +56,7 @@ def buscaArtigo(soup, ano):
 
 
     artigo["autores"] = dados_autores
-    print(artigo)
+    print(artigo['titulo'])
     mycursor = mydb.cursor()
     sql = "INSERT INTO artigos(cod, ano, titulo, area, tema) VALUES (%s, %s, %s, %s, %s)"
     val = (cod, ano, artigo["titulo"], artigo["area"], artigo["tema"])
@@ -73,26 +73,24 @@ def buscaArtigo(soup, ano):
     seta = link.find('span').get("class")
     if 'glyphicon-menu-right' not in seta :
         link = link.findNext('a')
-        return link
+    return link
 
 
-
-
-inicio = 'http://login.semead.com.br/21semead/anais/resumo.php'
-ano = 2018
+inicio = 'http://login.semead.com.br/19semead/anais/resumo.php'
+ano = 2016
 resposta = requests.get(inicio, headers={"User-Agent": "Mozilla/5.0"}).content
 soup = BeautifulSoup(resposta, features="html.parser")
 
 link = buscaArtigo(soup, ano)
 
-# while (link != None):  
-#   proximo = link.get('href')
-#   novo = 'http://login.semead.com.br/21semead/anais/resumo.php'+proximo
-#   print(novo)
-#   novaResposta = requests.get(novo, headers={"User-Agent": "Mozilla/5.0"}).content
-#   novoSoup = BeautifulSoup(novaResposta, features="html.parser")
-#   link = buscaArtigo(novoSoup, ano)
-# else:
-#   print("Acabou")
+while (link != None):  
+  proximo = link.get('href')
+  novo = 'http://login.semead.com.br/19semead/anais/resumo.php'+proximo
+  print(novo)
+  novaResposta = requests.get(novo, headers={"User-Agent": "Mozilla/5.0"}).content
+  novoSoup = BeautifulSoup(novaResposta, features="html.parser")
+  link = buscaArtigo(novoSoup, ano)
+else:
+  print("Acabou")
 
 
